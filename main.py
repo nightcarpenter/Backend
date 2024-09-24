@@ -9,108 +9,95 @@ async def application(
     send: Callable[[dict[str, Any]], Awaitable[None]]
 ) -> None:
 
-    # Проверка типа запроса (http)
-    if scope['type'] == 'http':
-        # Получение метода запроса
-        method = scope['method']
-        # Получение пути запроса
-        path = scope['path']
+    if scope['type'] != 'http':
+        return await send_response(send, 404, {"error": 404})
 
-        # Проверка, что метод запроса - GET
-        if method == 'GET':
-            # Обработка запроса на вычисление факториала
-            if path == '/factorial':
-                # Получение строки запроса
-                query_string = scope['query_string'].decode()
-                # Разбор параметров из строки запроса
-                params = dict(q.split('=') for q in query_string.split('&') if '=' in q)
-                # Получение параметра n, если он отсутствует, значение по умолчанию - 0
-                n = int(params.get('n', 0))
+    method = scope['method']
+    path = scope['path']
 
-                # Проверка, что n не отрицательное
-                if n < 0:
-                    # Формирование ответа с ошибкой
-                    response_body = json.dumps({'error': 'Number must be non-negative'})
-                    status_code = 400
-                else:
-                    # Вычисление факториала
-                    result = math.factorial(n)
-                    # Формирование ответа с результатом
-                    response_body = json.dumps({'factorial': result})
-                    status_code = 200
+    if method != 'GET':
+        # Возвращаем 404 для всех методов, кроме GET
+        return await send_response(send, 404, {"error": 404})
 
-                # Отправка ответа
-                await send_response(send, response_body, status_code)
+    # Обработка запроса на вычисление факториала
+    if path == '/factorial':
+        query_string = scope['query_string'].decode()
+        params = dict(q.split('=') for q in query_string.split('&') if '=' in q)
 
-            # Обработка запроса на вычисление последовательности Фибоначчи
-            elif path == '/fibonacci':
-                # Получение строки запроса
-                query_string = scope['query_string'].decode()
-                # Разбор параметров из строки запроса
-                params = dict(q.split('=') for q in query_string.split('&') if '=' in q)
-                # Получение параметра limit, если он отсутствует, значение по умолчанию - 10
-                limit = int(params.get('limit', 10))
+        # Ошибка 422, если параметр отсутствует или пуст
+        if 'n' not in params or not params['n']:
+            return await send_response(send, 422, {"error": 422})
 
-                # Проверка, что limit не отрицательное
-                if limit < 0:
-                    # Формирование ответа с ошибкой
-                    response_body = json.dumps({'error': 'Limit must be non-negative'})
-                    status_code = 400
-                else:
-                    # Вычисление последовательности Фибоначчи
-                    fib_sequence = fibonacci(limit)
-                    # Формирование ответа с результатом
-                    response_body = json.dumps({'fibonacci': fib_sequence})
-                    status_code = 200
+        try:
+            n = int(params['n'])
 
-                # Отправка ответа
-                await send_response(send, response_body, status_code)
+            if n < 0:
+                # Ошибка 400 для отрицательного числа
+                return await send_response(send, 400, {"error": 400})
 
-            # Обработка запроса на вычисление среднего арифметического
-            elif path == '/mean':
-                # Получение строки запроса
-                query_string = scope['query_string'].decode()
-                # Разбор параметров из строки запроса
-                params = dict(q.split('=') for q in query_string.split('&') if '=' in q)
-                # Получение параметра numbers, представляющего собой строку чисел через запятую
-                numbers_str = params.get('numbers', '')
+            result = math.factorial(n)
+            return await send_response(send, 200, {'result': result})
 
-                try:
-                    # Преобразование строки чисел в список чисел
-                    numbers = [float(num) for num in numbers_str.split(',')]
-                    # Если список чисел пустой, вызвать ошибку
-                    if not numbers:
-                        raise ValueError()
-                    # Вычисление среднего арифметического
-                    mean_value = sum(numbers) / len(numbers)
-                    # Формирование ответа с результатом
-                    response_body = json.dumps({'mean': mean_value})
-                    status_code = 200
-                except ValueError:
-                    # Формирование ответа с ошибкой при некорректном вводе
-                    response_body = json.dumps({
-                        'error': 'Invalid input, must be a comma-separated list of numbers'
-                    })
-                    status_code = 400
+        except ValueError:
+            # Ошибка 422 для некорректного параметра (например, строка)
+            return await send_response(send, 422, {"error": 422})
 
-                # Отправка ответа
-                await send_response(send, response_body, status_code)
+    # Обработка запроса на вычисление числа Фибоначчи
+    elif path == '/fibonacci':
+        query_string = scope['query_string'].decode()
+        params = dict(q.split('=') for q in query_string.split('&') if '=' in q)
 
-            # Обработка запроса на неизвестный путь
-            else:
-                # Формирование ответа с ошибкой "Не найдено"
-                response_body = json.dumps({'error': 'Not found'})
-                status_code = 404
-                # Отправка ответа
-                await send_response(send, response_body, status_code)
+        # Ошибка 422, если параметр отсутствует или пуст
+        if 'n' not in params or not params['n']:
+            return await send_response(send, 422, {"error": 422})
+
+        try:
+            n = int(params['n'])
+
+            if n < 0:
+                # Ошибка 400 для отрицательного числа
+                return await send_response(send, 400, {"error": 400})
+
+            fib_sequence = fibonacci(n)
+            return await send_response(send, 200, {'result': fib_sequence})
+
+        except ValueError:
+            # Ошибка 422 для некорректного параметра
+            return await send_response(send, 422, {"error": 422})
+
+    # Обработка запроса на вычисление среднего арифметического через строку запроса
+    elif path == '/mean':
+        query_string = scope['query_string'].decode()
+        params = dict(q.split('=') for q in query_string.split('&') if '=' in q)
+
+        # Ошибка 422, если параметр отсутствует или пуст
+        if 'numbers' not in params or not params['numbers']:
+            return await send_response(send, 422, {"error": 422})
+
+        try:
+            # Преобразование строки чисел в список float
+            numbers = [float(num) for num in params['numbers'].split(',')]
+
+            if not numbers:
+                # Ошибка 400 для пустого списка чисел
+                return await send_response(send, 400, {"error": 400})
+
+            result = sum(numbers) / len(numbers)
+            return await send_response(send, 200, {'result': result})
+
+        except ValueError:
+            # Ошибка 422 для некорректных значений
+            return await send_response(send, 422, {"error": 422})
+
+    # Ошибка 404 для неизвестных путей
+    return await send_response(send, 404, {"error": 404})
 
 # Функция для отправки HTTP-ответа
 async def send_response(
     send: Callable[[dict[str, Any]], Awaitable[None]],
-    body: str,
-    status: int
+    status: int,
+    body: dict
 ) -> None:
-    # Отправка заголовков ответа
     await send({
         'type': 'http.response.start',
         'status': status,
@@ -118,18 +105,14 @@ async def send_response(
             (b'content-type', b'application/json')
         ]
     })
-    # Отправка тела ответа
     await send({
         'type': 'http.response.body',
-        'body': body.encode('utf-8')
+        'body': json.dumps(body).encode('utf-8')
     })
 
 # Функция для вычисления последовательности Фибоначчи
-def fibonacci(limit: int):
-    # Начальная последовательность Фибоначчи
+def fibonacci(n: int):
     sequence = [0, 1]
-    # Генерация последовательности до достижения заданного лимита
-    while len(sequence) < limit:
+    for _ in range(2, n):
         sequence.append(sequence[-1] + sequence[-2])
-    # Возврат последовательности с длиной limit
-    return sequence[:limit]
+    return sequence[:n]
